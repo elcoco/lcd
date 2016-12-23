@@ -463,6 +463,14 @@ class MPDHandler(object):
             return False
 
 
+    def do_update_database(self):
+        try:
+            return self.mpd.update()
+        except:
+            log.error("Failed to update MPD database")
+            return False
+
+
 
 class LCD(object):
     def __init__(self):
@@ -1373,7 +1381,8 @@ class MPDMode():
                       "Browse Albums", \
                       "Browse Songs", \
                       "Radio", \
-                      "Set Server" ]
+                      "Set Server", \
+                      "Update Database" ]
 
         menu = Menu(opts, self.h, pos=0, n_lines=lcd.lcd_rows)
         selected,x = menu.run()
@@ -1392,6 +1401,9 @@ class MPDMode():
             self.set_server()
         elif selected == "Radio":
             self.radio()
+        elif selected == "Update Database":
+            lcd.send_to_display("Updating Database", row=1, center=True, time=3)
+            self.mpd_handler.do_update_database()
 
 
     def set_server(self):
