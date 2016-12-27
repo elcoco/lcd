@@ -591,7 +591,7 @@ class Helper(object):
         self.t_last_input = time()
 
         # Which context are we in, eg: mpd, bluetooth etc.
-        self.main_menu_opts = ["mpd", "bluetooth", "Kodi Remote", "Wifi Settings", "Shutdown"]
+        self.main_menu_opts = ["mpd", "bluetooth", "Kodi Remote", "Wifi Settings", "Reboot", "Shutdown"]
         self.menu_select_char = ">"
 
         self.mpd_hosts = [ { "host" : "ecobox", 
@@ -1257,10 +1257,10 @@ class MainMenu(object):
 
 
     def run(self):
+        os.system('sudo ifconfig wlan0 up')
         #wifi_mode = WifiMode(self.h)
         #if not wifi_mode.connect_to_available():
         #    wifi_mode.activate()
-        os.system('sudo ifconfig wlan0 up')
 
         while True:
             menu = Menu(self.h.main_menu_opts, self.h, pos=self.h.default_state, n_lines=lcd.lcd_rows)
@@ -1277,7 +1277,11 @@ class MainMenu(object):
                 wifi_mode = WifiMode(self.h)
                 wifi_mode.activate()
             elif result == "Shutdown":
+                lcd.send_to_display("Shutting down ...", row=1, center=True)
                 os.system("halt")
+            elif result == "Reboot":
+                lcd.send_to_display("Rebooting ...", row=1, center=True)
+                os.system("reboot")
         backlight_thread.stop()
 
 
