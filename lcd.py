@@ -319,6 +319,33 @@ class MPDHandler(object):
             return False
 
 
+    def get_elapsed_duration(self):
+        try:
+            status = self.mpd.status()
+        except:
+            log.error("Failed to get song status")
+            return False
+
+        if "time" in status.keys():
+            time = self.mpd.status()["time"]
+            time_es = time.split(":")
+            if len(time_es) == 2:
+                return time_es[0], time_es[1]
+        else:
+            log.error("Failed to get elapsed")
+            return False
+
+
+    def get_progress(self):
+        time = self.get_elapsed_duration()
+        if len(time) == 2:
+            print(time)
+            return int(100/int(time[1])*int(time[0]))
+        else:
+            log.error("Failed to get progress")
+            return False
+
+
     def get_playlists(self):
         try:
             return self.mpd.listplaylists()
@@ -594,9 +621,9 @@ class Helper(object):
         self.main_menu_opts = ["mpd", "bluetooth", "Kodi Remote", "Wifi Settings", "Reboot", "Shutdown"]
         self.menu_select_char = ">"
 
-        self.mpd_hosts = [ { "host" : "ecobox", 
+        self.mpd_hosts = [ { "host" : "localhost",
                              "port" : "6600" } ,
-                           { "host" : "localhost",
+                           { "host" : "ecobox" ,
                              "port" : "6600" } ,
                            { "host" : "eeebox",
                              "port" : "6600" } ]
@@ -1314,6 +1341,7 @@ class MPDMode():
     def __init__(self, helper, playlist=False):
         # TODO also disconnect from mpd
         # You can specify an alternative playlist to work with, eg: in radio mode
+        # TODO song progress
         self.playlist = playlist
         self.h = helper
         self.mpd_handler = MPDHandler(host=self.h.mpd_hosts[0]["host"], port=self.h.mpd_hosts[0]["port"])
@@ -1332,29 +1360,39 @@ class MPDMode():
     def update_lcd(self):
         # It is sending stuff to lcd very often which is not a problem because it filters out if it's the same
         # but there are a lot of calls to mpd
+        if not lcd.backlight_state:
+            return
+
+        if self.mpd_handler.is_stopped():
+            lcd.send_to_display("[Stopped]", row=3, center=True, clear=True)
+            return
+
         artist = self.mpd_handler.get_current_artist()
         title  = self.mpd_handler.get_current_title()
 
-        if self.mpd_handler.is_stopped():
-            lcd.send_to_display("[Stopped]", row=2, center=True, clear=True)
-            return
-
-        lcd.send_to_display(artist, row=1, center=True)
+        lcd.send_to_display(artist, row=0, center=True)
 
         # If title is bigger than display, create a scrolling object everytime the songtitle changes and call the scroll() method
         if len(title) > lcd.lcd_columns:
             if self.last_title == title:
                 self.scroller.scroll()
             else:
-                self.scroller = Scroller(title, self.h, row=2)
+                self.scroller = Scroller(title, self.h, row=1)
                 self.last_title = title
         else:
-            lcd.send_to_display(title, row=2, center=True, clear=False)
+            lcd.send_to_display(title, row=1, center=True, clear=False)
 
         if self.mpd_handler.is_paused():
             lcd.send_to_display("[Paused]", center=True, row=3, clear=False, force=True)
         else:
-            lcd.send_to_display("", center=True, row=3, clear=False)
+            progress = self.mpd_handler.get_progress()
+            # TODO if progress = 0 its the same as false but it should be interpreted as "0" and not False
+            if progress:
+                progress_graph = self.h.get_graphbar(progress, lcd.lcd_columns-2)
+                lcd.send_to_display("[{0}]".format(progress_graph), row=3, center=True, clear=False)
+            else:
+                progress_graph = self.h.get_graphbar(0, lcd.lcd_columns-2)
+                lcd.send_to_display("[{0}]".format(progress_graph), row=3, center=True, clear=False)
 
 
     def browse_tag(self, tag):
@@ -1381,6 +1419,7 @@ class MPDMode():
 
     def menu(self):
         opts = [ "Browse Playlist", \
+                      "Browse Artists:Albums", \
                       "Browse Artists", \
                       "Browse Albums", \
                       "Browse Songs", \
